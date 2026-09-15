@@ -53,6 +53,7 @@ object PushConstants {
   const val EXIT: String = "exit"
   const val FINISH: String = "finish"
   const val HAS_PERMISSION: String = "hasPermission"
+  const val OPEN_NOTIFICATION_SETTINGS: String = "openNotificationSettings"
   const val ANDROID: String = "android"
   const val SENDER_ID: String = "senderID"
   const val CLEAR_BADGE: String = "clearBadge"

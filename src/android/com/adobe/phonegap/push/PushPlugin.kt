@@ -6,8 +6,10 @@ import android.annotation.TargetApi
 import android.app.Activity
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.ActivityNotFoundException
 import android.content.ContentResolver
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Resources.NotFoundException
 import android.media.AudioAttributes
@@ -412,6 +414,7 @@ class PushPlugin : CordovaPlugin() {
       PushConstants.UNREGISTER -> executeActionUnregister(data, callbackContext)
       PushConstants.FINISH -> callbackContext.success()
       PushConstants.HAS_PERMISSION -> executeActionHasPermission(callbackContext)
+      PushConstants.OPEN_NOTIFICATION_SETTINGS -> executeActionOpenNotificationSettings(callbackContext)
       PushConstants.SET_APPLICATION_ICON_BADGE_NUMBER -> executeActionSetIconBadgeNumber(
         data, callbackContext
       )
@@ -709,6 +712,38 @@ class PushPlugin : CordovaPlugin() {
       } catch (e: JSONException) {
         callbackContext.error(e.message)
       }
+    }
+  }
+
+  private fun executeActionOpenNotificationSettings(callbackContext: CallbackContext) {
+    val packageName = applicationContext.packageName
+    // App notification settings exist since API 26; the app details screen is the fallback
+    // (older Android or a vendor build without the activity).
+    val intents = mutableListOf<Intent>()
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      intents.add(
+        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+          .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+      )
+    }
+    intents.add(
+      Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))
+    )
+
+    activity.runOnUiThread {
+      var lastError: Exception? = null
+      for (intent in intents) {
+        try {
+          intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+          activity.startActivity(intent)
+          callbackContext.success()
+          return@runOnUiThread
+        } catch (e: ActivityNotFoundException) {
+          lastError = e
+        }
+      }
+      Log.e(TAG, "Execute::OpenNotificationSettings: ${lastError?.message}")
+      callbackContext.error(lastError?.message ?: "No settings activity")
     }
   }
 
