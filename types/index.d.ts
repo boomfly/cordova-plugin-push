@@ -355,6 +355,12 @@ declare namespace PhonegapPluginPush {
 		 */
 		hasPermission(successCallback: (data: {isEnabled: boolean}) => void, errorCallback: () => void): void;
 		/**
+		 * Opens the app's notification settings screen in the system settings.
+		 * @param successCallback Is called when the settings screen was opened.
+		 * @param errorCallback	Is called when the settings screen could not be opened.
+		 */
+		openNotificationSettings(successCallback: () => void, errorCallback: (message: string) => void): void;
+		/**
 		 * Android only
 		 * Create a new notification channel for Android O and above.
 		 * @param successCallback Is called when the api successfully creates a channel.

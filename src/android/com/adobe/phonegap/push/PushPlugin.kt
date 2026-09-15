@@ -1,12 +1,16 @@
 package com.adobe.phonegap.push
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.annotation.TargetApi
 import android.app.Activity
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.ActivityNotFoundException
 import android.content.ContentResolver
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.Resources.NotFoundException
 import android.media.AudioAttributes
 import android.net.Uri
@@ -37,12 +41,15 @@ class PushPlugin : CordovaPlugin() {
     const val PREFIX_TAG: String = "cordova-plugin-push"
     private const val TAG: String = "$PREFIX_TAG (PushPlugin)"
 
+    private const val REQ_CODE_INITIALIZE_PLUGIN = 0
+
     /**
      * Is the WebView in the foreground?
      */
     var isInForeground: Boolean = false
 
     private var pushContext: CallbackContext? = null
+    private var pluginInitData: JSONArray? = null
     private var gWebView: CordovaWebView? = null
     private val gCachedExtras = Collections.synchronizedList(ArrayList<Bundle>())
 
@@ -407,6 +414,7 @@ class PushPlugin : CordovaPlugin() {
       PushConstants.UNREGISTER -> executeActionUnregister(data, callbackContext)
       PushConstants.FINISH -> callbackContext.success()
       PushConstants.HAS_PERMISSION -> executeActionHasPermission(callbackContext)
+      PushConstants.OPEN_NOTIFICATION_SETTINGS -> executeActionOpenNotificationSettings(callbackContext)
       PushConstants.SET_APPLICATION_ICON_BADGE_NUMBER -> executeActionSetIconBadgeNumber(
         data, callbackContext
       )
@@ -433,10 +441,15 @@ class PushPlugin : CordovaPlugin() {
     // Better Logging
     fun formatLogMessage(msg: String): String = "Execute::Initialize: ($msg)"
 
+    pushContext = callbackContext
+    pluginInitData = data;
+
+    if (!checkForPostNotificationsPermission()) {
+      return
+    }
+
     cordova.threadPool.execute(Runnable {
       Log.v(TAG, formatLogMessage("Data=$data"))
-
-      pushContext = callbackContext
 
       val sharedPref = applicationContext.getSharedPreferences(
         PushConstants.COM_ADOBE_PHONEGAP_PUSH,
@@ -600,6 +613,26 @@ class PushPlugin : CordovaPlugin() {
     })
   }
 
+  private fun checkForPostNotificationsPermission(): Boolean {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      if (!PermissionHelper.hasPermission(this, Manifest.permission.POST_NOTIFICATIONS)) {
+        if (ActivityCompat.shouldShowRequestPermissionRationale(
+            activity,
+            Manifest.permission.POST_NOTIFICATIONS
+          )) {
+          return false
+        }
+        PermissionHelper.requestPermission(
+          this,
+          REQ_CODE_INITIALIZE_PLUGIN,
+          Manifest.permission.POST_NOTIFICATIONS
+        )
+        return false
+      }
+    }
+    return true
+  }
+
   private fun executeActionUnregister(data: JSONArray, callbackContext: CallbackContext) {
     // Better Logging
     fun formatLogMessage(msg: String): String = "Execute::Unregister: ($msg)"
@@ -679,6 +712,38 @@ class PushPlugin : CordovaPlugin() {
       } catch (e: JSONException) {
         callbackContext.error(e.message)
       }
+    }
+  }
+
+  private fun executeActionOpenNotificationSettings(callbackContext: CallbackContext) {
+    val packageName = applicationContext.packageName
+    // App notification settings exist since API 26; the app details screen is the fallback
+    // (older Android or a vendor build without the activity).
+    val intents = mutableListOf<Intent>()
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      intents.add(
+        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+          .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+      )
+    }
+    intents.add(
+      Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))
+    )
+
+    activity.runOnUiThread {
+      var lastError: Exception? = null
+      for (intent in intents) {
+        try {
+          intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+          activity.startActivity(intent)
+          callbackContext.success()
+          return@runOnUiThread
+        } catch (e: ActivityNotFoundException) {
+          lastError = e
+        }
+      }
+      Log.e(TAG, "Execute::OpenNotificationSettings: ${lastError?.message}")
+      callbackContext.error(lastError?.message ?: "No settings activity")
     }
   }
 
@@ -870,6 +935,31 @@ class PushPlugin : CordovaPlugin() {
     topic?.let {
       Log.d(TAG, "Unsubscribing to topic: $it")
       FirebaseMessaging.getInstance().unsubscribeFromTopic(it)
+    }
+  }
+
+  override fun onRequestPermissionResult(
+    requestCode: Int,
+    permissions: Array<out String>?,
+    grantResults: IntArray?
+  ) {
+    super.onRequestPermissionResult(requestCode, permissions, grantResults)
+
+    for (r in grantResults!!) {
+      if (r == PackageManager.PERMISSION_DENIED) {
+        pushContext?.sendPluginResult(
+          PluginResult(
+            PluginResult.Status.ILLEGAL_ACCESS_EXCEPTION,
+            "Permission to post notifications was denied by the user"
+          )
+        )
+        return
+      }
+    }
+
+    if (requestCode == REQ_CODE_INITIALIZE_PLUGIN)
+    {
+      executeActionInitialize(pluginInitData!!, pushContext!!)
     }
   }
 }

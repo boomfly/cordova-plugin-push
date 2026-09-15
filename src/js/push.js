@@ -336,6 +336,15 @@ module.exports = {
   },
 
   /**
+   * Opens the app's notification settings screen in the system settings.
+   * Android 8+: app notification settings, older — app details. iOS 15.4+: app notification
+   * settings, older — app settings.
+   */
+  openNotificationSettings: (successCallback, errorCallback) => {
+    exec(successCallback, errorCallback, 'PushNotification', 'openNotificationSettings', []);
+  },
+
+  /**
    * PushNotification Object.
    *
    * Expose the PushNotification object for direct use

@@ -11,7 +11,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
 function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
 
-function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); Object.defineProperty(Constructor, "prototype", { writable: false }); return Constructor; }
 
 /*!
  * Module dependencies.
@@ -369,6 +369,15 @@ module.exports = {
   },
   listChannels: function listChannels(successCallback, errorCallback) {
     exec(successCallback, errorCallback, 'PushNotification', 'listChannels', []);
+  },
+
+  /**
+   * Opens the app's notification settings screen in the system settings.
+   * Android 8+: app notification settings, older — app details. iOS 15.4+: app notification
+   * settings, older — app settings.
+   */
+  openNotificationSettings: function openNotificationSettings(successCallback, errorCallback) {
+    exec(successCallback, errorCallback, 'PushNotification', 'openNotificationSettings', []);
   },
 
   /**
