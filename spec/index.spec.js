@@ -52,6 +52,11 @@ describe('phonegap-plugin-push', () => {
       expect(typeof PushNotification.listChannels === 'function').toBe(true);
     });
 
+    it('should contain a openNotificationSettings function', () => {
+      expect(PushNotification.openNotificationSettings).toBeDefined();
+      expect(typeof PushNotification.openNotificationSettings === 'function').toBe(true);
+    });
+
     it('should contain a unregister function', () => {
       const push = PushNotification.init({});
       expect(push.unregister).toBeDefined();
