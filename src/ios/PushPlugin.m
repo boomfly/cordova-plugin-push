@@ -538,6 +538,24 @@
     }
 }
 
+- (void)openNotificationSettings:(CDVInvokedUrlCommand *)command
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        // iOS 15.4+ opens the app's notification settings; older — the app's settings page.
+        NSString *urlString = UIApplicationOpenSettingsURLString;
+        if (@available(iOS 15.4, *)) {
+            urlString = UIApplicationOpenNotificationSettingsURLString;
+        }
+        NSURL *url = [NSURL URLWithString:urlString];
+        [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:^(BOOL success) {
+            CDVPluginResult *result = success
+                ? [CDVPluginResult resultWithStatus:CDVCommandStatus_OK]
+                : [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Unable to open settings"];
+            [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+        }];
+    });
+}
+
 -(void)successWithMessage:(NSString *)myCallbackId withMsg:(NSString *)message
 {
     if (myCallbackId != nil)
